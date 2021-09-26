@@ -28,5 +28,3 @@ Run the script from the repository directory:
   ```
 
 Both weights and an image file must be specified. The image can also be specified as a URL.
-
-##
