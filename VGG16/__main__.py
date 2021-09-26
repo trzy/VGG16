@@ -75,60 +75,112 @@ class VGG16(nn.Module):
 
     return y.reshape((-1, 1000))  # drop the last two redundant dimensions and return (N,1000)
 
-  def _load_conv2d_weights(self, f, keypath, keras_shape = None):
-    w = np.array(f[keypath]).astype(np.float32)
-    if keras_shape is not None:
-      w = w.reshape(keras_shape)
-    w = w.transpose([ 3, 2, 0, 1 ])
-    return t.from_numpy(w)
-
-  def _load_conv2d_bias(self, f, keypath):
-    b = np.array(f[keypath]).astype(np.float32)
-    return t.from_numpy(b)
+  @staticmethod
+  def _load_weights(hdf5_file, layer_name, keras_shape = None):
+    """
+    Loads Keras-formatted 2D convolutional kernel weights from an HDF5 file and
+    returns them in PyTorch format. Keras stores kernels as:
+  
+      (kernel_height, kernel_width, channels_in, channels_out)
+    
+    PyTorch:
+  
+      (channels_out, channels_in, kernel_height, kernel_width)
+  
+    Parameters
+    ----------
+    hdf5_file : h5py.File
+      Opened HDF5 file object.
+    layer_name : str
+      Name of layer to load. E.g., "block1_conv1".
+    keras_shape : tuple
+      Original Keras shape. If specified, weights are reshaped to this shape
+      before being transposed to PyTorch format.
+  
+    Returns
+    -------
+    torch.Tensor
+      Weights.
+    """
+    primary_keypath = "model_weights/" + layer_name
+    for keypath, node in hdf5_file[primary_keypath].items():
+      if keypath.startswith("conv") or keypath.startswith("dense"):
+        kernel_keypath = "/".join([primary_keypath, keypath, "kernel:0"])
+        w = np.array(hdf5_file[kernel_keypath]).astype(np.float32)
+        if keras_shape is not None:
+          w = w.reshape(keras_shape)
+        w = w.transpose([ 3, 2, 0, 1 ])
+        return t.from_numpy(w)
+    raise RuntimeError("Layer %s not found in %s" % (layer_name, hdf5_file.filename))
+  
+  @staticmethod
+  def _load_bias(hdf5_file, layer_name):
+    """
+    Loads biases from an HDF5 file.
+  
+    Parameters
+    ----------
+    hdf5_file : h5py.File
+      Opened HDF5 file object.
+    layer_name : str
+      Name of the layer to load. E.g., "block1_conv1".
+  
+    Returns
+    -------
+    torch.Tensor
+      Bias vector.
+    """
+    primary_keypath = "model_weights/" + layer_name
+    for keypath, node in hdf5_file[primary_keypath].items():
+      if keypath.startswith("conv") or keypath.startswith("dense"):
+        bias_keypath = "/".join([primary_keypath, keypath, "bias:0"])
+        b = np.array(hdf5_file[bias_keypath]).astype(np.float32)
+        return t.from_numpy(b)
+    raise RuntimeError("Layer %s not found in %s" % (layer_name, hdf5_file.filename))
 
   def load_weights(self, filepath):
     f = h5py.File(filepath)
 
     # Load conv layers and convert to PyTorch from Keras:
     # (ky, kx, in_channels, out_channels) -> (out_channels, in_channels, ky, kx)
-    self.block1_conv1.weight.data = self._load_conv2d_weights(f, "model_weights/block1_conv1/conv01/kernel:0")
-    self.block1_conv1.bias.data = self._load_conv2d_bias(f, "model_weights/block1_conv1/conv01/bias:0")
-    self.block1_conv2.weight.data = self._load_conv2d_weights(f, "model_weights/block1_conv2/conv02/kernel:0")
-    self.block1_conv2.bias.data = self._load_conv2d_bias(f, "model_weights/block1_conv2/conv02/bias:0")
+    self.block1_conv1.weight.data = self._load_weights(f, "block1_conv1")
+    self.block1_conv1.bias.data = self._load_bias(f, "block1_conv1")
+    self.block1_conv2.weight.data = self._load_weights(f, "block1_conv2")
+    self.block1_conv2.bias.data = self._load_bias(f, "block1_conv2")
     
-    self.block2_conv1.weight.data = self._load_conv2d_weights(f, "model_weights/block2_conv1/conv03/kernel:0")
-    self.block2_conv1.bias.data = self._load_conv2d_bias(f, "model_weights/block2_conv1/conv03/bias:0")
-    self.block2_conv2.weight.data = self._load_conv2d_weights(f, "model_weights/block2_conv2/conv04/kernel:0")
-    self.block2_conv2.bias.data = self._load_conv2d_bias(f, "model_weights/block2_conv2/conv04/bias:0")
+    self.block2_conv1.weight.data = self._load_weights(f, "block2_conv1")
+    self.block2_conv1.bias.data = self._load_bias(f, "block2_conv1")
+    self.block2_conv2.weight.data = self._load_weights(f, "block2_conv2")
+    self.block2_conv2.bias.data = self._load_bias(f, "block2_conv2")
 
-    self.block3_conv1.weight.data = self._load_conv2d_weights(f, "model_weights/block3_conv1/conv05/kernel:0")
-    self.block3_conv1.bias.data = self._load_conv2d_bias(f, "model_weights/block3_conv1/conv05/bias:0")
-    self.block3_conv2.weight.data = self._load_conv2d_weights(f, "model_weights/block3_conv2/conv06/kernel:0")
-    self.block3_conv2.bias.data = self._load_conv2d_bias(f, "model_weights/block3_conv2/conv06/bias:0")
-    self.block3_conv3.weight.data = self._load_conv2d_weights(f, "model_weights/block3_conv3/conv07/kernel:0")
-    self.block3_conv3.bias.data = self._load_conv2d_bias(f, "model_weights/block3_conv3/conv07/bias:0")
+    self.block3_conv1.weight.data = self._load_weights(f, "block3_conv1")
+    self.block3_conv1.bias.data = self._load_bias(f, "block3_conv1")
+    self.block3_conv2.weight.data = self._load_weights(f, "block3_conv2")
+    self.block3_conv2.bias.data = self._load_bias(f, "block3_conv2")
+    self.block3_conv3.weight.data = self._load_weights(f, "block3_conv3")
+    self.block3_conv3.bias.data = self._load_bias(f, "block3_conv3")
 
-    self.block4_conv1.weight.data = self._load_conv2d_weights(f, "model_weights/block4_conv1/conv08/kernel:0")
-    self.block4_conv1.bias.data = self._load_conv2d_bias(f, "model_weights/block4_conv1/conv08/bias:0")
-    self.block4_conv2.weight.data = self._load_conv2d_weights(f, "model_weights/block4_conv2/conv09/kernel:0")
-    self.block4_conv2.bias.data = self._load_conv2d_bias(f, "model_weights/block4_conv2/conv09/bias:0")
-    self.block4_conv3.weight.data = self._load_conv2d_weights(f, "model_weights/block4_conv3/conv10/kernel:0")
-    self.block4_conv3.bias.data = self._load_conv2d_bias(f, "model_weights/block4_conv3/conv10/bias:0")
+    self.block4_conv1.weight.data = self._load_weights(f, "block4_conv1")
+    self.block4_conv1.bias.data = self._load_bias(f, "block4_conv1")
+    self.block4_conv2.weight.data = self._load_weights(f, "block4_conv2")
+    self.block4_conv2.bias.data = self._load_bias(f, "block4_conv2")
+    self.block4_conv3.weight.data = self._load_weights(f, "block4_conv3")
+    self.block4_conv3.bias.data = self._load_bias(f, "block4_conv3")
 
-    self.block5_conv1.weight.data = self._load_conv2d_weights(f, "model_weights/block5_conv1/conv11/kernel:0")
-    self.block5_conv1.bias.data = self._load_conv2d_bias(f, "model_weights/block5_conv1/conv11/bias:0")
-    self.block5_conv2.weight.data = self._load_conv2d_weights(f, "model_weights/block5_conv2/conv12/kernel:0")
-    self.block5_conv2.bias.data = self._load_conv2d_bias(f, "model_weights/block5_conv2/conv12/bias:0")
-    self.block5_conv3.weight.data = self._load_conv2d_weights(f, "model_weights/block5_conv3/conv13/kernel:0")
-    self.block5_conv3.bias.data = self._load_conv2d_bias(f, "model_weights/block5_conv3/conv13/bias:0")
+    self.block5_conv1.weight.data = self._load_weights(f, "block5_conv1")
+    self.block5_conv1.bias.data = self._load_bias(f, "block5_conv1")
+    self.block5_conv2.weight.data = self._load_weights(f, "block5_conv2")
+    self.block5_conv2.bias.data = self._load_bias(f, "block5_conv2")
+    self.block5_conv3.weight.data = self._load_weights(f, "block5_conv3")
+    self.block5_conv3.bias.data = self._load_bias(f, "block5_conv3")
 
     # Load dense layers and convert to PyTorch from Keras
-    self.fc1.weight.data = self._load_conv2d_weights(f, "model_weights/fc1/dense1/kernel:0", keras_shape = (7, 7, 512, 4096))
-    self.fc1.bias.data = self._load_conv2d_bias(f, "model_weights/fc1/dense1/bias:0")
-    self.fc2.weight.data = self._load_conv2d_weights(f, "model_weights/fc2/dense2/kernel:0", keras_shape = (1, 1, 4096, 4096))
-    self.fc2.bias.data = self._load_conv2d_bias(f, "model_weights/fc2/dense2/bias:0")
-    self.predictions.weight.data = self._load_conv2d_weights(f, "model_weights/predictions/dense3/kernel:0", keras_shape = (1, 1, 4096, 1000))
-    self.predictions.bias.data = self._load_conv2d_bias(f, "model_weights/predictions/dense3/bias:0")
+    self.fc1.weight.data = self._load_weights(f, "fc1", keras_shape = (7, 7, 512, 4096))
+    self.fc1.bias.data = self._load_bias(f, "fc1")
+    self.fc2.weight.data = self._load_weights(f, "fc2", keras_shape = (1, 1, 4096, 4096))
+    self.fc2.bias.data = self._load_bias(f, "fc2")
+    self.predictions.weight.data = self._load_weights(f, "predictions", keras_shape = (1, 1, 4096, 1000))
+    self.predictions.bias.data = self._load_bias(f, "predictions")
 
     f.close()
 
