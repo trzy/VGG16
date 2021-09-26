@@ -1188,8 +1188,8 @@ def infer(model, x):
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser("FasterRCNN-pytorch")
-  parser.add_argument("--load-from", metavar = "filepath", type = str, action = "store", help = "File to load initial model weights from for both model types")
-  parser.add_argument("--show-objects", metavar = "file", type = str, action = "store", help = "Run inference on image using classifier network and display bounding boxes")
+  parser.add_argument("--load-from", metavar = "filepath", type = str, action = "store", help = "File to load initial model weights from")
+  parser.add_argument("--show-objects", metavar = "file", type = str, action = "store", help = "Run inference and list top 5 classes")
   options = parser.parse_args()
 
   if options.show_objects:
